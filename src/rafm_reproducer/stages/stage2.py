@@ -5,6 +5,7 @@ from ..schemas.hierarchy import (
     HierarchyNode,
     build_index,
     load_hierarchy,
+    load_model_tree,
     to_compact_text,
 )
 from ..schemas.pipeline_state import PipelineState
@@ -62,7 +63,8 @@ def run_stage2(state: PipelineState, client, cfg: dict) -> PipelineState:
 
     nodes: list[HierarchyNode] = load_hierarchy(state.high_json_path)
     index = build_index(nodes)
-    hierarchy_text = to_compact_text(nodes)
+    # The model map lives in the Low JSON; read once, before the retry loop.
+    hierarchy_text = to_compact_text(nodes, load_model_tree(state.low_json_path))
 
     system = load_prompt("stage2_system")
     validation_errors: list[str] = []
@@ -82,6 +84,8 @@ def run_stage2(state: PipelineState, client, cfg: dict) -> PipelineState:
             system=system,
             user=user,
             response_model=Stage2Output,
+            effort=cfg.get("effort"),
+            max_tokens=cfg.get("max_tokens"),
         )
 
         save_json(state.run_dir, f"{label}_output", output)

@@ -7,7 +7,12 @@ from pathlib import Path
 
 import streamlit as st
 
-from src.rafm_reproducer.config import available_models, load_config
+from src.rafm_reproducer.config import (
+    available_clients,
+    available_models,
+    load_stage_cfg,
+    stage_model_map,
+)
 from src.rafm_reproducer.llm_client import get_client
 from src.rafm_reproducer.orchestrator import (
     apply_checkpoint1_approve,
@@ -21,23 +26,22 @@ from src.rafm_reproducer.orchestrator import (
 from src.rafm_reproducer.schemas.user_input import UserPrompt
 
 # ── defaults ──────────────────────────────────────────────────────────────────
-_DEFAULT_HIGH = "docs/Hierarchy_Harel_High.json"
-_DEFAULT_LOW = "docs/hierarchie_harel_Low.json"
+# Pre-selected company; the list itself is discovered from docs/.
+_DEFAULT_CLIENT = "Menora"
 
 # ── helpers ───────────────────────────────────────────────────────────────────
 
-def _cfg_for(model: str) -> dict:
-    cfg = load_config()
-    cfg["model"] = model
-    import yaml
-    from pathlib import Path as _P
-    raw = yaml.safe_load((_P(__file__).parent / "config.yaml").read_text())
-    cfg["api_version"] = raw.get("llm_api_versions", {}).get(model)
-    return cfg
+_AUTO = "Auto — per stage (config.yaml)"
 
 
-def _client_for(model: str):
-    return get_client(_cfg_for(model))
+def _override() -> str | None:
+    """The sidebar model, or None when each stage keeps its configured model."""
+    choice = st.session_state.get("model_choice")
+    return None if choice in (None, _AUTO) else choice
+
+
+def _cfg_for_stage(stage: str) -> dict:
+    return load_stage_cfg(stage, _override())
 
 
 def _confidence_badge(conf: str) -> str:
@@ -77,12 +81,42 @@ if "gen_stage_start" not in st.session_state:
 # ── sidebar ───────────────────────────────────────────────────────────────────
 with st.sidebar:
     st.header("Configuration")
-    models = available_models()
-    default_model = load_config()["model"]
+
+    _clients = available_clients()
+    if not _clients:
+        st.error(
+            "No client hierarchy found in docs/. Convert an audit report first:\n"
+            "`python scripts/extract_hierarchy_from_pdf.py \"<report.pdf>\" <Client>`"
+        )
+        st.stop()
+    _names = list(_clients)
+    company = st.selectbox(
+        "Company",
+        options=_names,
+        index=_names.index(_DEFAULT_CLIENT) if _DEFAULT_CLIENT in _names else 0,
+        key="company",
+        help="Which client model the analysis runs against. The High/Low JSON "
+             "pair is picked from docs/ accordingly.",
+        disabled=st.session_state.state is not None,
+    )
+    _high_default, _low_default = _clients[company]
+    if st.session_state.state is not None:
+        st.caption("Locked for this run — start a new run to switch company.")
+
     model_choice = st.selectbox(
         "Model",
-        options=models,
-        index=models.index(default_model) if default_model in models else 0,
+        options=[_AUTO] + available_models(),
+        index=0,
+        key="model_choice",
+        help="Auto runs each stage on the model assigned to it in config.yaml. "
+             "Pick a single model to force it on every stage.",
+    )
+    _stage_map = stage_model_map()
+    st.caption(
+        "Per stage: "
+        + " · ".join(f"{s.replace('stage', 'S')} `{m}`" for s, m in _stage_map.items())
+        if model_choice == _AUTO
+        else f"Forcing `{model_choice}` on every stage."
     )
 
     if st.session_state.state:
@@ -96,8 +130,12 @@ with st.sidebar:
         st.rerun()
 
     with st.expander("⚙️ Advanced"):
-        high_path = st.text_input("High JSON path", value=_DEFAULT_HIGH)
-        low_path = st.text_input("Low JSON path", value=_DEFAULT_LOW)
+        high_path = st.text_input(
+            "High JSON path", value=str(_high_default), key=f"high_{company}"
+        )
+        low_path = st.text_input(
+            "Low JSON path", value=str(_low_default), key=f"low_{company}"
+        )
         st.caption("Batch mode")
         batch_file = st.text_input("Corrections JSON (optional)", value="")
 
@@ -135,8 +173,8 @@ if st.session_state.phase == "form":
             st.error("Please describe the mechanism before running.")
         else:
             user_prompt = UserPrompt(text=text)
-            cfg = _cfg_for(model_choice)
-            client = _client_for(model_choice)
+            cfg = _cfg_for_stage("stage1")
+            client = get_client(cfg)
 
             with st.spinner("Running Stage 1…"):
                 st.markdown("""
@@ -151,7 +189,7 @@ if st.session_state.phase == "form":
                     state = start_run(
                         high_json_path=Path(high_path),
                         low_json_path=Path(low_path),
-                        model_name=model_choice,
+                        model_name=cfg["model"],
                         user_prompt=user_prompt,
                         client=client,
                         cfg=cfg,
@@ -238,8 +276,8 @@ The model understood your request as:</span><br>
                 if not correction.strip():
                     st.error("Please enter a correction.")
                 else:
-                    cfg = _cfg_for(model_choice)
-                    client = _client_for(model_choice)
+                    cfg = _cfg_for_stage("stage1")
+                    client = get_client(cfg)
                     with st.spinner("Re-running Stage 1 with your correction…"):
                         state = apply_checkpoint1_correct(state, correction, client, cfg)
                     st.session_state.state = state
@@ -261,8 +299,8 @@ elif st.session_state.phase == "stage2_running":
 - *This typically takes 30–60 seconds*
 """)
         try:
-            cfg = _cfg_for(model_choice)
-            client = _client_for(model_choice)
+            cfg = _cfg_for_stage("stage2")
+            client = get_client(cfg)
             state = trigger_stage2(state, client, cfg)
             st.session_state.state = state
             st.session_state.phase = "cp2"
@@ -342,8 +380,8 @@ elif st.session_state.phase == "cp2":
                 if not correction.strip():
                     st.error("Please enter a correction.")
                 else:
-                    cfg = _cfg_for(model_choice)
-                    client = _client_for(model_choice)
+                    cfg = _cfg_for_stage("stage2")
+                    client = get_client(cfg)
                     with st.spinner("Re-running Stage 2 with your correction…"):
                         state = apply_checkpoint2_correct(state, correction, client, cfg)
                     st.session_state.state = state
@@ -361,8 +399,6 @@ elif st.session_state.phase == "generating":
     from src.rafm_reproducer.stages.stage5 import run_stage5
     from src.rafm_reproducer.stages.stage6 import run_stage6
     from src.rafm_reproducer.stages.stage7 import run_stage7
-    from src.rafm_reproducer.config import load_premium_cfg
-    from src.rafm_reproducer.llm_client import get_client as _get_client
 
     state = st.session_state.state
     current = st.session_state.gen_stage
@@ -371,11 +407,14 @@ elif st.session_state.phase == "generating":
     st.header("Step 5 — Generating Excel workbook")
     st.divider()
 
+    def _stage_model(n: int) -> str:
+        return _cfg_for_stage(f"stage{n}")["model"]
+
     _STAGE_META = {
-        3: ("Stage 3", "Load source code from Low JSON",            False, "gpt-5.4-deployment"),
-        4: ("Stage 4", "Decompose formulas analytically",           True,  "GPT-5.5"),
-        5: ("Stage 5", "Generate Excel specification",              True,  "GPT-5.5"),
-        6: ("Stage 6", "Self-review vs source code",                True,  "gpt-5.4-deployment"),
+        3: ("Stage 3", "Load source code from Low JSON",            False, "—"),
+        4: ("Stage 4", "Decompose formulas analytically",           True,  _stage_model(4)),
+        5: ("Stage 5", "Generate Excel specification",              True,  _stage_model(5)),
+        6: ("Stage 6", "Self-review vs source code",                True,  _stage_model(6)),
         7: ("Stage 7", "Build .xlsx workbook",                      False, "—"),
     }
 
@@ -458,21 +497,19 @@ elif st.session_state.phase == "generating":
         st.stop()
 
     # ── Run current stage ─────────────────────────────────────────────────────
-    cfg = _cfg_for(model_choice)
-    client = _client_for(model_choice)
-    premium_cfg = load_premium_cfg()
-    premium_client = _get_client(premium_cfg)
+    _stage_cfgs = {n: _cfg_for_stage(f"stage{n}") for n in (4, 5, 6)}
+    _stage_clients = {n: get_client(c) for n, c in _stage_cfgs.items()}
 
     t0 = _time.time()
     try:
         if current == 3:
             state = run_stage3(state)
         elif current == 4:
-            state = run_stage4(state, premium_client, premium_cfg)
+            state = run_stage4(state, _stage_clients[4], _stage_cfgs[4])
         elif current == 5:
-            state = run_stage5(state, premium_client, premium_cfg)
+            state = run_stage5(state, _stage_clients[5], _stage_cfgs[5])
         elif current == 6:
-            state = run_stage6(state, client, cfg)
+            state = run_stage6(state, _stage_clients[6], _stage_cfgs[6])
         elif current == 7:
             state = run_stage7(state)
 

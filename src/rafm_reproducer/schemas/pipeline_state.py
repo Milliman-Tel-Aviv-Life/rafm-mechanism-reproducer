@@ -23,7 +23,6 @@ class EnrichedFormula(BaseModel):
     """A selected formula with its verbatim contenu attached (output of Stage 3)."""
     numero: str
     titre: str
-    page: int
     role_one_line: str
     contenu: str
 

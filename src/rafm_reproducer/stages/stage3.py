@@ -30,7 +30,6 @@ def run_stage3(state: PipelineState) -> PipelineState:
             EnrichedFormula(
                 numero=formula.numero,
                 titre=formula.titre,
-                page=node.page,
                 role_one_line=formula.role_one_line,
                 contenu=node.contenu or "",
             )

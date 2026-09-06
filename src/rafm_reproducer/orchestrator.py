@@ -6,7 +6,7 @@ The Streamlit app calls these functions directly.
 from datetime import datetime
 
 from .artifacts import new_run_dir, save_json
-from .config import load_premium_cfg
+from .config import load_stage_cfg
 from .llm_client import get_client
 from .schemas.pipeline_state import CheckpointAction, PipelineState
 from .schemas.user_input import UserPrompt
@@ -85,12 +85,13 @@ def apply_checkpoint2_correct(state: PipelineState, correction: str, client, cfg
 
 def trigger_stages_3_to_7(
     state: PipelineState,
-    client,
-    cfg: dict,
+    model_override: str | None = None,
     progress_callback=None,
 ) -> PipelineState:
     """
     Run the full generation pipeline: Stage 3 → 4 → 5 → 6 → 7.
+    Each LLM stage runs on the model configured for it in config.yaml, unless
+    model_override forces one model for all of them.
     progress_callback(stage_number, label) is called before each stage if provided.
     Imports are deferred so any import error surfaces with the real traceback.
     """
@@ -99,9 +100,10 @@ def trigger_stages_3_to_7(
     from .stages.stage6 import run_stage6
     from .stages.stage7 import run_stage7
 
-    # Stages 4 and 5 use the premium model (GPT-5.5) for deeper reasoning
-    premium_cfg = load_premium_cfg()
-    premium_client = get_client(premium_cfg)
+    # One client per stage — stages can sit on different models and even on
+    # different APIM routes (Anthropic vs Azure OpenAI).
+    cfgs = {n: load_stage_cfg(f"stage{n}", model_override) for n in (4, 5, 6)}
+    clients = {n: get_client(c) for n, c in cfgs.items()}
 
     def _cb(n, label):
         if progress_callback:
@@ -115,20 +117,20 @@ def trigger_stages_3_to_7(
         _cb(3, "Stage 3 — Already done ✓")
 
     if state.stage4_output is None:
-        _cb(4, f"Stage 4 — Decomposing formulas analytically [{premium_cfg['model']}]…")
-        state = run_stage4(state, premium_client, premium_cfg)
+        _cb(4, f"Stage 4 — Decomposing formulas analytically [{cfgs[4]['model']}]…")
+        state = run_stage4(state, clients[4], cfgs[4])
     else:
         _cb(4, "Stage 4 — Already done ✓")
 
     if state.stage5_output is None:
-        _cb(5, f"Stage 5 — Generating Excel specification [{premium_cfg['model']}]…")
-        state = run_stage5(state, premium_client, premium_cfg)
+        _cb(5, f"Stage 5 — Generating Excel specification [{cfgs[5]['model']}]…")
+        state = run_stage5(state, clients[5], cfgs[5])
     else:
         _cb(5, "Stage 5 — Already done ✓")
 
     if state.stage6_output is None:
-        _cb(6, "Stage 6 — Self-reviewing specification against source code…")
-        state = run_stage6(state, client, cfg)
+        _cb(6, f"Stage 6 — Self-reviewing specification against source code [{cfgs[6]['model']}]…")
+        state = run_stage6(state, clients[6], cfgs[6])
     else:
         _cb(6, "Stage 6 — Already done ✓")
 

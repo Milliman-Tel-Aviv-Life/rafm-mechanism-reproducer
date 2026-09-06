@@ -26,7 +26,7 @@ def _build_user_prompt(state: PipelineState, validation_errors: list[str]) -> st
         "=== SOURCE FORMULAS WITH CODE ===",
     ]
     for ef in enriched:
-        parts.append(f"\n--- [{ef.numero}] {ef.titre} (page {ef.page}) ---")
+        parts.append(f"\n--- [{ef.numero}] {ef.titre} ---")
         parts.append(ef.contenu if ef.contenu else "(no code)")
 
     if validation_errors:
@@ -57,6 +57,8 @@ def run_stage6(state: PipelineState, client, cfg: dict) -> PipelineState:
             system=system,
             user=user,
             response_model=Stage6Output,
+            effort=cfg.get("effort"),
+            max_tokens=cfg.get("max_tokens"),
         )
 
         save_json(state.run_dir, f"{label}_output", output)

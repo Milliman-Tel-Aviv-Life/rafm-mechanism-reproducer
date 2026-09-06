@@ -95,8 +95,8 @@ def _build_doc_sheet(ws, enriched: list[EnrichedFormula]):
     ws.title = "Doc"
     ws.sheet_view.showGridLines = True
 
-    headers = ["Numero", "Titre", "Page", "Source Code"]
-    widths = [14, 30, 8, 100]
+    headers = ["Numero", "Titre", "Source Code"]
+    widths = [14, 30, 100]
     for col, (h, w) in enumerate(zip(headers, widths), 1):
         _hdr(ws, 1, col, h)
         ws.column_dimensions[get_column_letter(col)].width = w
@@ -105,8 +105,7 @@ def _build_doc_sheet(ws, enriched: list[EnrichedFormula]):
         fill = _GREY_ROW if r % 2 == 0 else _WHITE
         _val(ws, r, 1, ef.numero, fill)
         _val(ws, r, 2, ef.titre, fill)
-        _val(ws, r, 3, ef.page, fill)
-        c = _val(ws, r, 4, ef.contenu, fill)
+        c = _val(ws, r, 3, ef.contenu, fill)
         c.alignment = Alignment(wrap_text=False, vertical="top")
         ws.row_dimensions[r].height = 30
 

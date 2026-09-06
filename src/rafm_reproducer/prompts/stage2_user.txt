@@ -10,7 +10,6 @@
 
 {keyword_hints}
 
-=== MODEL HIERARCHY (names only — Code Manager + Formulas) ===
-Format: [numero] titre | partie
+=== MODEL HIERARCHY (names only, no source code) ===
 
 {hierarchy}

@@ -61,6 +61,8 @@ def run_stage1(state: PipelineState, client, cfg: dict) -> PipelineState:
             system=system,
             user=user,
             response_model=Stage1Output,
+            effort=cfg.get("effort"),
+            max_tokens=cfg.get("max_tokens"),
         )
 
         save_json(state.run_dir, f"{label}_output", output)

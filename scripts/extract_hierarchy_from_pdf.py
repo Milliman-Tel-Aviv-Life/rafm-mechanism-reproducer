@@ -167,7 +167,7 @@ def _parse_nodes(lines: list[tuple[str, int]]) -> tuple[list[dict], list[tuple[s
                 stack.append(numero)
             else:
                 stack = stack[: depth - 1] + [numero]
-            current = {"numero": numero, "titre": title, "page": page_num, "_content": []}
+            current = {"numero": numero, "titre": title, "_content": []}
         elif current is not None:
             current["_content"].append(line)
 
@@ -203,7 +203,6 @@ def _enrich(raw_nodes: list[dict]) -> list[dict]:
                 "parent": parent,
                 "titre": n["titre"],
                 "partie": partie,
-                "page": n["page"],
                 "contenu": contenu,
                 "contenu_len": len(contenu),
                 "a_du_code": a_du_code,

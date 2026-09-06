@@ -1,13 +1,12 @@
+# Models available on the Tel Aviv APIM. Two routes live behind the same
+# endpoint + key: claude-* models speak the native Anthropic Messages API at
+# /anthropic/v1/messages, everything else the Azure OpenAI chat-completions API.
+# api_version applies to the Azure route only — the Anthropic route ignores it.
 llm_api_versions:
-  gpt-5: '2024-12-01-preview'
-  gpt-4.1: '2025-01-01-preview'
-  text-embedding-3-large: '2024-12-01-preview'
-  gpt-5.1: '2025-01-01-preview'
-  gpt-5.2: 'gpt-5.2-deployment'
-  gpt-5.4-deployment: '2024-12-01-preview'
   GPT-5.5: '2024-12-01-preview'
-  claude-opus-4-5: ~
-  claude-sonnet-4-6: ~
+  gpt-5.6-terra: '2024-12-01-preview'
+  claude-opus-4-8: ~
+  claude-sonnet-5: ~
 
 endpoints:
   tel_aviv: "https://apim-aiservices-prod-01.azure-api.net"
@@ -15,5 +14,37 @@ endpoints:
 api_keys:
   tel_aviv: "e48dccc126da4fe98d107ddbf2472550"
 
-llm_deployment: gpt-5.4-deployment
-llm_deployment_premium: GPT-5.5
+# Which model runs which stage. Stages 3 and 7 are mechanical (no LLM).
+# A value is either a bare model name or a dict:
+#   model      — deployment name; claude-* go through the Anthropic route
+#   effort     — low|medium|high|xhigh|max, claude-* only
+#   timeout_s  — hard cut for one API call; the stage's time budget
+#   max_tokens — output cap, and the real lever on wall-clock
+#
+# Measured on Menora at ~105 output tokens/s: effort high answers Stage 4 in
+# ~81s, medium in ~71s. xhigh took over 10 minutes on the same prompt — the
+# step from high to xhigh is a cliff, not a gradient, so nothing here uses it.
+# max_tokens is set below what the timeout allows at that rate, so a call hits
+# its own cap before it hits the clock.
+stage_models:
+  # Short reading task on a few paragraphs — no need for the heavy model.
+  stage1: {model: claude-sonnet-5, effort: low, timeout_s: 300, max_tokens: 8000}
+  # Needle-in-a-haystack over the whole High hierarchy: long-context retrieval
+  # plus judgement, and a wrong pick poisons every stage after it. ~50s measured.
+  stage2: {model: claude-opus-4-8, effort: high, timeout_s: 300, max_tokens: 16000}
+  # Reading RAFM's C-like source and decomposing it analytically — the hardest
+  # reasoning in the pipeline, so it gets the 7-minute budget.
+  stage4: {model: claude-opus-4-8, effort: high, timeout_s: 420, max_tokens: 24000}
+  # Translating that analysis into a complete Excel spec: reasoning plus a long
+  # structured output, hence the largest cap.
+  # Measured at 474s (7.9 min) at effort high. medium is NOT an option here:
+  # it omits required schema fields (mechanism_name, key_relation) and burns
+  # the retries failing. This is the one stage that cannot fit 7 minutes.
+  stage5: {model: claude-opus-4-8, effort: high, timeout_s: 540, max_tokens: 32000}
+  # Audit of stages 4-5. Deliberately a different provider: a model reviewing
+  # its own output shares its own blind spots.
+  stage6: {model: gpt-5.6-terra, timeout_s: 300, max_tokens: 16000}
+
+# Fallbacks for any stage absent from stage_models, and for the sidebar default.
+llm_deployment: claude-sonnet-5
+llm_deployment_premium: claude-opus-4-8
