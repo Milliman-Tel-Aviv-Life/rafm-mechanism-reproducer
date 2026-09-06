@@ -1,4 +1,4 @@
-from typing import Any, Literal
+from typing import Literal
 
 from pydantic import BaseModel
 
@@ -40,11 +40,16 @@ class Note(BaseModel):
     text: str
 
 
+class KeyRelation(BaseModel):
+    identity: str
+    source_formulas: list[str]
+
+
 class Stage5Output(BaseModel):
     reasoning: str          # step-by-step explanation of design choices before finalising the spec
     mechanism_name: str
     scope_description: str
-    key_relation: dict[str, Any]
+    key_relation: KeyRelation
     inputs: list[InputSpec]
     scenario: ScenarioSpec
     calculations: list[CalculationSpec]

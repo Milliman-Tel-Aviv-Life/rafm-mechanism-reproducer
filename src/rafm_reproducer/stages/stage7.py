@@ -242,9 +242,9 @@ def _build_notes_sheet(ws, spec: Stage5Output, stage6: Stage6Output | None):
     _val(ws, row, 1, "Scope")
     _val(ws, row, 2, spec.scope_description)
     row += 1
-    if spec.key_relation:
+    if spec.key_relation.identity:
         _val(ws, row, 1, "Key identity")
-        _val(ws, row, 2, spec.key_relation.get("identity", ""))
+        _val(ws, row, 2, spec.key_relation.identity)
         row += 1
 
     row += 1  # blank
