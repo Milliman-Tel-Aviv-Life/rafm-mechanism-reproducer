@@ -119,6 +119,29 @@ sub-model), select the column in each class and record the delegation in
 Use these only as hints. Do NOT invent meanings beyond what names and hierarchy
 reveal.
 
+# SCOPE FILTERS (apply before selecting)
+- Product regime: restrict selection to participating, old-regime contracts
+  (the "old_adif" concept named above — present across every client model).
+  Where the model also exposes a par/non-par flag, its name varies by
+  company (par_nonpar, par_nonpar_type, or absent entirely) — treat "P" as
+  confirming scope where it exists, but old_adif is the reliable signal.
+  Disregard non-participating branches and formulas entirely: do not select
+  them, and do not list them in "consumers_for_info".
+- Policy status: only consider conditions where the policy is active,
+  paid-up, or otherwise still accumulating — i.e. NOT yet in its annuity /
+  payout phase. Ignore formulas whose scope is limited to a policy already
+  receiving annuity/pension payments. This status is carried by a field that
+  varies by company — e.g. a status field with values like DEFERRED vs
+  PAYOUT, a paid-up status code, or a conversion/switch flag. Match by what
+  the field represents, not by exact spelling.
+- Status transition — explicit precedence over the rule above: always
+  include the column(s) that determine or execute the transition from
+  active/paid-up into the annuity/payout phase itself (sometimes named with
+  "convert"/"switch"/a transition-status field), even though such a column
+  necessarily touches the annuity phase. Exclude the annuity BENEFIT
+  calculation that runs once payout has started — not the mechanism that
+  decides when payout starts.
+
 # OUTPUT
 Return ONLY valid JSON matching this schema. No prose outside the JSON.
 {

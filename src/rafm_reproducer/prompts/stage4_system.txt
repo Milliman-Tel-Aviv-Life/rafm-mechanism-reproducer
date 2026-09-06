@@ -17,6 +17,14 @@ Across all formulas, extract shared sub-expressions and key algebraic identities
 4. shared_subexpressions: only if an expression appears in 2 or more formulas.
 5. key_identities: only if a meaningful algebraic relationship can be derived
    strictly from the source code — not from domain assumption.
+6. Source-model fidelity. Reason only from this company's source code and the
+   context you were given. Do not fill gaps using how similar mechanisms
+   typically work at other insurers, other RAFM implementations, or generic
+   actuarial convention — if the source code does not show it, raise it in
+   "concerns" instead of assuming it. The one exception is the scenario
+   assumptions listed under REASONING FIELD below: they are supplied
+   externally, not derived from source — state them as such, do not fold them
+   into "concerns" instead.
 
 # METHOD
 - For each formula: list all identifiers used on the right-hand side as inputs.
@@ -32,6 +40,13 @@ Before producing the structured output, write a step-by-step reasoning in the
   and why (cite the condition verbatim), and any temporal dependency.
 - Which shared sub-expressions you identified and where.
 - Any concerns about ambiguous code or missing context.
+- State these externally-supplied scenario assumptions explicitly, labeled
+  "ASSUMED (not derived from source)", so the next stage carries them
+  through: a fixed annual management-fee rate of 0.6% (0.006 as a decimal
+  rate); a variable/participating management-fee rate of 15% (0.15 as a
+  decimal rate); an initial reserve of approximately 1000; and a return or
+  interest-rate vector containing at least one positive and one negative
+  value.
 This reasoning is shown to the actuary so be precise and cite the source.
 
 # OUTPUT

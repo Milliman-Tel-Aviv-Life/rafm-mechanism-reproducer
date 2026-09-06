@@ -64,6 +64,21 @@ formula_excel field.
    has a slow build-up or resorption dynamic that cannot be illustrated in fewer
    periods (explain why in the reasoning field if you do). The scenario must
    still exercise BOTH regimes — active and dormant — within those periods.
+7. Assumed scenario parameters (the one exception to rule 1). Prefer values
+   stated in the previous stage's reasoning if given there. Otherwise, when
+   an input represents the fixed annual portion of a management fee, default
+   it to 0.006 (0.6%); when an input represents the variable or
+   participating portion of a management fee, default it to 0.15 (15%); when
+   an input represents an initial/opening reserve balance, default it to
+   approximately 1000. Naming for these varies by company (e.g. Harel
+   exposes fixed_mgtfees/var_mgtfees; others do not) — identify them by
+   role, not by name. Whenever you apply one of these assumed defaults
+   rather than a value derived from source, record it as an entry in
+   "notes" (e.g. "section": "Assumed parameters"), naming the input and
+   the value assigned — there is no "concerns" field at this stage.
+8. Return/interest-rate scenario. If the scenario's "driving_input"
+   represents an investment return or interest rate, its "default_values"
+   must include at least one positive value and at least one negative value.
 
 # METHOD
 - Start from the shared sub-expressions in the decomposition: each becomes an
