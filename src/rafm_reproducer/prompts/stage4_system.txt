@@ -6,6 +6,7 @@ a C-like notation. You are decomposing each formula into its analytical structur
 For each formula provided, identify its inputs, conditional branches, and any
 temporal self-reference (i.e., the formula reads its own previous value at t-1).
 Across all formulas, extract shared sub-expressions and key algebraic identities.
+When migrating the logical mechanism to Excel, make sure no circular references are introduced.
 
 # NON-NEGOTIABLE RULES
 1. No hallucination. Every input variable, branch condition, and sub-expression

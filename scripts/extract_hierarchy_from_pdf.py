@@ -4,7 +4,11 @@ Extract Hierarchy_<name>_High.json / hierarchie_<name>_Low.json from a
 
 Usage:
     pip install -e ".[pdf]"
-    python scripts/extract_hierarchy_from_pdf.py "<path to AuditReport.pdf>" <ClientName>
+    python scripts/extract_hierarchy_from_pdf.py "<path to AuditReport.pdf>" <ClientName> [--partial]
+
+--partial accepts a PDF that is only a page-range print of the report (e.g.
+the Formulas appendix alone): the first numbered heading found seeds the
+outline stack with its implied ancestors instead of having to be "1 Summary".
 
 Writes:
     docs/Hierarchy_<ClientName>_High.json
@@ -117,7 +121,9 @@ def _valid_next(parts: tuple[int, ...], stack: list[str]) -> bool:
     return False
 
 
-def _parse_nodes(lines: list[tuple[str, int]]) -> tuple[list[dict], list[tuple[str, str]]]:
+def _parse_nodes(
+    lines: list[tuple[str, int]], partial: bool = False
+) -> tuple[list[dict], list[tuple[str, str]]]:
     raw_nodes: list[dict] = []
     stack: list[str] = []
     current: dict | None = None
@@ -154,6 +160,21 @@ def _parse_nodes(lines: list[tuple[str, int]]) -> tuple[list[dict], list[tuple[s
                 if _valid_next(_numero_parts(line), stack) and i + 1 < n:
                     numero, title = line, lines[i + 1][0]
                     consumed = 2
+
+            # --partial: the very first heading may sit anywhere in the
+            # outline (a page-range print starts mid-report). Seed the stack
+            # with its implied ancestors so the strict sibling/child rules
+            # apply from there on.
+            if numero is None and partial and not stack:
+                seed = None
+                if m:
+                    seed = (m.group(1), m.group(2), 1)
+                elif _BARE_NUMERO_RE.match(line) and i + 1 < n:
+                    seed = (line, lines[i + 1][0], 2)
+                if seed is not None:
+                    numero, title, consumed = seed
+                    parts = _numero_parts(numero)
+                    stack = [".".join(str(x) for x in parts[:k]) for k in range(1, len(parts))]
 
             if numero is not None and "." not in numero and title.strip() not in _KNOWN_TOP_LEVEL_TITLES:
                 rejected_top_level.append((numero, title))
@@ -211,25 +232,27 @@ def _enrich(raw_nodes: list[dict]) -> list[dict]:
     return nodes
 
 
-def extract(pdf_path: Path) -> tuple[list[dict], list[tuple[str, str]]]:
+def extract(pdf_path: Path, partial: bool = False) -> tuple[list[dict], list[tuple[str, str]]]:
     doc = pymupdf.open(str(pdf_path))
     lines = _body_lines(doc)
-    raw_nodes, rejected_top_level = _parse_nodes(lines)
+    raw_nodes, rejected_top_level = _parse_nodes(lines, partial=partial)
     return _enrich(raw_nodes), rejected_top_level
 
 
 def main():
-    if len(sys.argv) != 3:
-        print(f"Usage: python {sys.argv[0]} <input.pdf> <ClientName>", file=sys.stderr)
+    args = [a for a in sys.argv[1:] if a != "--partial"]
+    partial = "--partial" in sys.argv[1:]
+    if len(args) != 2:
+        print(f"Usage: python {sys.argv[0]} <input.pdf> <ClientName> [--partial]", file=sys.stderr)
         sys.exit(1)
 
-    pdf_path = Path(sys.argv[1])
-    client_name = sys.argv[2]
+    pdf_path = Path(args[0])
+    client_name = args[1]
     if not pdf_path.exists():
         print(f"File not found: {pdf_path}", file=sys.stderr)
         sys.exit(1)
 
-    nodes, rejected_top_level = extract(pdf_path)
+    nodes, rejected_top_level = extract(pdf_path, partial=partial)
     if rejected_top_level:
         distinct = sorted(set(t for _, t in rejected_top_level))
         print(

@@ -19,6 +19,10 @@ def validate_stage5(output: Stage5Output, stage4: Stage4Output) -> list[str]:
     seen_columns: set[str] = set()
     for calc in output.calculations:
         for dep in calc.depends_on:
+            # A temporal column reads its own previous-period value — that is
+            # what makes it temporal, not a forward reference.
+            if dep == calc.column_name and calc.kind == "temporal":
+                continue
             if dep not in seen_columns and dep not in input_names:
                 errors.append(
                     f"Calculation '{calc.column_name}' depends on '{dep}' "

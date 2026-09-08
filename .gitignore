@@ -27,3 +27,6 @@ docs/*.json
 
 # local Claude Code permissions (machine-specific paths)
 .claude/
+
+# backups written by scripts/merge_partial_hierarchy.py
+docs/backup_*/

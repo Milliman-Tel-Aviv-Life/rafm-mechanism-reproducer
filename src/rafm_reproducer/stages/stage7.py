@@ -60,15 +60,25 @@ def _resolve_formula(
     current_row: int,
     header_row: int,
     input_names: set[str],
+    self_name: str | None = None,
+    driver_ref: str | None = None,
+    driver_name: str | None = None,
 ) -> str:
     """
     Replace column_name references with absolute Excel cell references.
     - prev_X / X_prev → column X, previous row (or header row for t=1)
     - regular X (not an input) → column X, current row
-    - input names → left as-is (they are Excel named ranges)
+    - self_name (a temporal column citing itself) → previous row, never the
+      current one: a same-row self-reference is a circular reference in Excel
+    - driver_name → driver_ref, the scenario table cell for this period, so the
+      per-period path is what the model reads rather than the scalar default
+    - other input names → left as-is (they are Excel named ranges)
     """
     result = formula_excel
     prev_row = current_row - 1 if current_row > header_row + 1 else header_row
+
+    if driver_name and driver_ref:
+        result = re.sub(r'\b' + re.escape(driver_name) + r'\b', driver_ref, result)
 
     # Sort by length desc to avoid partial replacements
     ordered = sorted(col_map.items(), key=lambda kv: len(kv[0]), reverse=True)
@@ -82,7 +92,9 @@ def _resolve_formula(
         # X_prev
         result = re.sub(r'\b' + re.escape(col_name) + r'_prev\b', prev_ref, result)
         # regular X (only for calculated columns, not inputs)
-        if col_name not in input_names:
+        if col_name == self_name:
+            result = re.sub(r'\b' + re.escape(col_name) + r'\b', prev_ref, result)
+        elif col_name not in input_names:
             result = re.sub(r'\b' + re.escape(col_name) + r'\b', cur_ref, result)
 
     prefix = "=" if not result.startswith("=") else ""
@@ -161,6 +173,8 @@ def _build_model_sheet(ws, spec: Stage5Output):
     calcs = spec.calculations
     input_names = {inp.name for inp in spec.inputs}
     n = spec.scenario.n_periods
+    driver = spec.scenario.driving_input
+    scenario_start = len(spec.inputs) + 3  # same layout as _build_inputs_sheet
 
     # Column layout: A=Period, B onwards = calculations
     HEADER_ROW = 1
@@ -196,22 +210,32 @@ def _build_model_sheet(ws, spec: Stage5Output):
 
         ws.cell(row=current_row, column=1, value=t).fill = fill
 
+        driver_ref = f"Inputs!$B${scenario_start + t}"
+
         for calc in calcs:
             col_letter = col_map[calc.column_name]
             col_idx = column_index_from_string(col_letter)
+            resolve = dict(
+                col_map=col_map, current_row=current_row, header_row=HEADER_ROW,
+                input_names=input_names,
+                self_name=calc.column_name if calc.kind == "temporal" else None,
+                driver_ref=driver_ref, driver_name=driver,
+            )
 
+            body = _resolve_formula(calc.formula_excel, **resolve)
             if calc.kind == "conditional" and calc.condition_excel:
-                condition = _resolve_formula(
-                    calc.condition_excel, col_map, current_row, HEADER_ROW, input_names
-                ).lstrip("=")
-                body = _resolve_formula(
-                    calc.formula_excel, col_map, current_row, HEADER_ROW, input_names
-                ).lstrip("=")
-                formula = f"=IF({condition},{body},0)"
-            else:
-                formula = _resolve_formula(
-                    calc.formula_excel, col_map, current_row, HEADER_ROW, input_names
+                condition = _resolve_formula(calc.condition_excel, **resolve).lstrip("=")
+                body = body.lstrip("=")
+                # The model often bakes the guard into formula_excel already;
+                # wrapping it again only nests a redundant IF.
+                already_guarded = body.upper().startswith("IF(") and (
+                    condition.replace(" ", "") in body.replace(" ", "")
                 )
+                formula = body if already_guarded else f"=IF({condition},{body},0)"
+                if not formula.startswith("="):
+                    formula = "=" + formula
+            else:
+                formula = body
 
             cell = ws.cell(row=current_row, column=col_idx, value=formula)
             cell.fill = fill

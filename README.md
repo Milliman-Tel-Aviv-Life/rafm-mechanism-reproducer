@@ -46,6 +46,31 @@ This writes `docs/Hierarchy_<ClientName>_High.json` and
 path fields at. `pymupdf` is not part of the app's normal dependencies — only installed
 when you actually need to extract a new pair.
 
+### Refreshing the Formulas chapter from a partial print
+
+The full report generator truncates long formula bodies (on the 2020 Menora
+report, ~400 of 3 006 formulas stopped mid-body). A fresh print of just the
+Formulas appendix (chapter 8, e.g. via "Microsoft Print to PDF" on a page
+range) carries complete bodies but none of the chapters Stage 2 needs for the
+model map. Graft it onto the existing pair instead of replacing it:
+
+```bash
+python scripts/merge_partial_hierarchy.py Menora "<path to partial AuditReport.pdf>"
+```
+
+This keeps chapters 1-6 (and 8.3/8.4) from the existing JSONs, replaces the
+sections the print covers (7.1, 8.1, 8.2) with the freshly parsed ones, joins
+the `->` operator that the print's line wrapping splits across lines, and
+copies the previous pair to `docs/backup_<client>_<date>/` first.
+`extract_hierarchy_from_pdf.py --partial` is the underlying parser mode: it
+lets the outline start anywhere instead of at "1 Summary".
+
+Current Menora pair: chapters 1-6 come from the 2020 full report, chapters 7-8
+from the September 2026 print of the newer model ("RAFM New"). The two differ
+slightly (e.g. `num_cf` became `num_cf_movement`; 26 formulas of the new print
+have no entry in the old chapter 6), so a full regenerated report is still the
+clean fix.
+
 ## Project structure
 
 ```
