@@ -27,7 +27,7 @@ from src.rafm_reproducer.schemas.user_input import UserPrompt
 
 # ── defaults ──────────────────────────────────────────────────────────────────
 # Pre-selected company; the list itself is discovered from docs/.
-_DEFAULT_CLIENT = "Menora"
+_DEFAULT_CLIENT = "Ayalon"
 
 # ── helpers ───────────────────────────────────────────────────────────────────
 
