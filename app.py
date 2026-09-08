@@ -28,6 +28,9 @@ from src.rafm_reproducer.schemas.user_input import UserPrompt
 # ── defaults ──────────────────────────────────────────────────────────────────
 # Pre-selected company; the list itself is discovered from docs/.
 _DEFAULT_CLIENT = "Ayalon"
+# Set to a client name to lock this deployment on that client only: the sidebar
+# then offers no other choice. None keeps every client found in docs/.
+_LOCKED_CLIENT: str | None = "Ayalon"
 
 # ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -90,17 +93,28 @@ with st.sidebar:
         )
         st.stop()
     _names = list(_clients)
+    if _LOCKED_CLIENT is not None:
+        if _LOCKED_CLIENT not in _names:
+            st.error(
+                f"This deployment is locked on {_LOCKED_CLIENT}, but no High/Low "
+                "JSON pair for it was found in docs/."
+            )
+            st.stop()
+        _names = [_LOCKED_CLIENT]
+    _preselect = _LOCKED_CLIENT or _DEFAULT_CLIENT
     company = st.selectbox(
         "Company",
         options=_names,
-        index=_names.index(_DEFAULT_CLIENT) if _DEFAULT_CLIENT in _names else 0,
+        index=_names.index(_preselect) if _preselect in _names else 0,
         key="company",
         help="Which client model the analysis runs against. The High/Low JSON "
              "pair is picked from docs/ accordingly.",
-        disabled=st.session_state.state is not None,
+        disabled=st.session_state.state is not None or _LOCKED_CLIENT is not None,
     )
     _high_default, _low_default = _clients[company]
-    if st.session_state.state is not None:
+    if _LOCKED_CLIENT is not None:
+        st.caption(f"This deployment is locked on {_LOCKED_CLIENT}.")
+    elif st.session_state.state is not None:
         st.caption("Locked for this run — start a new run to switch company.")
 
     model_choice = st.selectbox(
