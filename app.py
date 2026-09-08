@@ -30,7 +30,7 @@ from src.rafm_reproducer.schemas.user_input import UserPrompt
 _DEFAULT_CLIENT = "Menora"
 # Set to a client name to lock this deployment on that client only: the sidebar
 # then offers no other choice. None keeps every client found in docs/.
-_LOCKED_CLIENT: str | None = None
+_LOCKED_CLIENT: str | None = "Menora"
 
 # ── helpers ───────────────────────────────────────────────────────────────────
 
