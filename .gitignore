@@ -21,9 +21,8 @@ runs/
 # editor temp leftovers
 *.tmp.*
 
-# client model data (obtain separately - see README)
+# client model data: the reference Excel stays out of git, the High/Low JSON pairs are committed
 *.xlsx
-docs/*.json
 
 # local Claude Code permissions (machine-specific paths)
 .claude/

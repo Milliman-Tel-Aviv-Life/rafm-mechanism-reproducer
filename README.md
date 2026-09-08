@@ -19,8 +19,8 @@ streamlit run app.py
 
 ## Required data files (not in this repo)
 
-The client model artifacts are excluded from version control. Place them in `docs/`
-before running:
+The High/Low JSON pairs are committed in `docs/` (private repo, client data). The
+reference Excel is not; place it in `docs/` before running:
 
 | File | Used by |
 |------|---------|
