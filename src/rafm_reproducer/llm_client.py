@@ -85,6 +85,30 @@ def _closed_schema(schema: dict) -> dict:
     return schema
 
 
+def _is_sonnet(model: str) -> bool:
+    return "sonnet" in model.lower()
+
+
+def _is_placeholder_answer(payload: dict) -> bool:
+    """
+    True when any string the model returned is the bare word 'placeholder'.
+    A genuine answer never has that as a whole field value; the failure mode
+    this catches fills every free-text field with it (enum fields such as
+    `confidence` still carry a legal value, so "all fields" would miss it).
+    """
+
+    def walk(v) -> bool:
+        if isinstance(v, str):
+            return v.strip().lower() == "placeholder"
+        if isinstance(v, dict):
+            return any(walk(x) for x in v.values())
+        if isinstance(v, list):
+            return any(walk(x) for x in v)
+        return False
+
+    return walk(payload)
+
+
 def _call_anthropic(
     client: anthropic.Anthropic,
     model: str,
@@ -115,7 +139,13 @@ def _call_anthropic(
         # Without this the model happily returns a partial object — on Stage 4 it
         # sent `reasoning` alone and dropped `formulas`, well under max_tokens.
         # strict makes the API guarantee the input matches the schema.
-        "strict": True,
+        #
+        # Not on Sonnet: since 2026-09-15, claude-sonnet-5 with strict + adaptive
+        # thinking answers every field with the literal string "placeholder"
+        # (11 thinking tokens, 213 output tokens — it does no work at all). The
+        # same call without strict, or without thinking, answers properly. Opus
+        # is unaffected, so strict stays on where it was needed.
+        "strict": not _is_sonnet(model),
     }
     instruction = (
         f"\n\nReturn your answer by calling the `{_ANSWER_TOOL}` tool exactly once, "
@@ -169,6 +199,15 @@ def _call_anthropic(
             last_error = RuntimeError(
                 f"{model} returned no {_ANSWER_TOOL} call (stop_reason="
                 f"{message.stop_reason})"
+            )
+        elif _is_placeholder_answer(block.input):
+            # A schema-valid non-answer: every field is the literal
+            # "placeholder". Letting it through hands Stage 2 an empty
+            # interpretation, and Stage 2 then guesses the mechanism from its
+            # scope rules alone.
+            last_error = RuntimeError(
+                f"{model} filled {response_model.__name__} with the literal "
+                "string 'placeholder' instead of answering"
             )
         else:
             try:
