@@ -1,3 +1,5 @@
+import json
+import re
 import time
 from typing import TypeVar, Type
 
@@ -109,6 +111,43 @@ def _is_placeholder_answer(payload: dict) -> bool:
     return walk(payload)
 
 
+_LEAK_START = re.compile(r'(?:</\w+>\s*)?<parameter\s+name="')
+_LEAK_BLOCK = re.compile(
+    r'<parameter\s+name="(\w+)">(.*?)(?=</parameter>|<parameter\s+name="|\Z)', re.S
+)
+
+
+def _salvage_leaked_parameters(payload: dict) -> dict:
+    """
+    Undo a recurring structured-output glitch on long answers: the model closes
+    its first field with a text tag (`</reasoning>` or `</parameter>`) and
+    writes every remaining field as `<parameter name="x">...` blocks INSIDE
+    that first string. The tool input then carries the whole answer in one
+    field and empty lists everywhere else — schema-valid, semantically empty.
+    Seen on Stage 4 (Opus) in 4 of 9 runs since 2026-09-04 and on Stage 1
+    (Sonnet) on 2026-09-15; the embedded blocks were valid JSON every time.
+
+    Returns the payload with the first field cut back to its real text and the
+    embedded blocks parsed into their own fields. Untouched when no leak.
+    """
+    for key, value in payload.items():
+        if not isinstance(value, str):
+            continue
+        m = _LEAK_START.search(value)
+        if m is None:
+            continue
+        fixed = dict(payload)
+        fixed[key] = value[: m.start()].rstrip()
+        for name, raw in _LEAK_BLOCK.findall(value[m.start():]):
+            raw = re.sub(r"</\w+>\s*$", "", raw.strip())
+            try:
+                fixed[name] = json.loads(raw)
+            except ValueError:
+                fixed[name] = raw
+        return fixed
+    return payload
+
+
 def _call_anthropic(
     client: anthropic.Anthropic,
     model: str,
@@ -211,7 +250,7 @@ def _call_anthropic(
             )
         else:
             try:
-                return response_model.model_validate(block.input)
+                return response_model.model_validate(_salvage_leaked_parameters(block.input))
             except ValidationError as e:
                 last_error = e
 
