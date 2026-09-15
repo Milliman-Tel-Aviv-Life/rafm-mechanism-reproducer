@@ -6,6 +6,22 @@ def validate_stage4(output: Stage4Output, enriched: list[EnrichedFormula]) -> li
     errors: list[str] = []
     enriched_numeros = {f.numero for f in enriched}
 
+    # An empty or partial decomposition is schema-valid but leaves Stage 5
+    # nothing to cite, and it then reconstructs the mechanism from names alone.
+    if not output.formulas:
+        errors.append(
+            "formulas is empty — every selected formula must be decomposed "
+            "(inputs_used, branches, temporal_self_reference); the analysis must "
+            "not stay in `reasoning` only."
+        )
+    else:
+        decomposed = {fd.numero for fd in output.formulas}
+        for f in enriched:
+            if f.numero not in decomposed:
+                errors.append(
+                    f"Selected formula [{f.numero}] {f.titre} has no entry in formulas."
+                )
+
     for fd in output.formulas:
         if fd.numero not in enriched_numeros:
             errors.append(
