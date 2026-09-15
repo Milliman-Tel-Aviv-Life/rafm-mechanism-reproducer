@@ -66,6 +66,15 @@ def run_stage4(state: PipelineState, client, cfg: dict) -> PipelineState:
         if not validation_errors:
             break
 
+    if validation_errors:
+        # No human checkpoint follows this stage: an invalid output would go
+        # straight into the workbook. Stop here; the UI offers a retry.
+        raise RuntimeError(
+            f"Stage 4 output still invalid after {MAX_SEMANTIC_RETRIES + 1} attempts "
+            f"({len(validation_errors)} error(s)); last errors: "
+            + " | ".join(validation_errors[:5])
+        )
+
     state.stage4_output = output
     save_json(state.run_dir, "pipeline_state", state)
     return state
