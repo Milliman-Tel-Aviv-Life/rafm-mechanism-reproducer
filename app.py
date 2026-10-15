@@ -372,10 +372,24 @@ elif st.session_state.phase == "cp2":
         st.session_state.phase = "generating"
         st.rerun()
 
+    directives = st.text_area(
+        "Modelling directives for the Excel (optional)",
+        key="cp2_directives",
+        height=140,
+        placeholder=(
+            "What the workbook must include and what it must leave out. e.g.\n"
+            "- Model only the old_adif participating branch; drop the eski_first branch.\n"
+            "- Keep the premium-paying and paid-up funds as two separate columns.\n"
+            "- Do not model surrender charges or death claims, the mechanism is the fee only."
+        ),
+        help="Sent as-is to the analysis (Stage 4), the Excel builder (Stage 5) and the "
+             "audit (Stage 6). Whatever you exclude here will not be reported as an omission.",
+    )
+
     col_a, col_c = st.columns(2)
     with col_a:
         if st.button("✅ Approve selection — generate Excel", type="primary", use_container_width=True):
-            state = apply_checkpoint2_approve(state)
+            state = apply_checkpoint2_approve(state, directives)
             st.session_state.state = state
             st.session_state.phase = "generating"
             st.session_state.gen_stage = 3
