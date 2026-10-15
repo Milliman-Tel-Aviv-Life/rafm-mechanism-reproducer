@@ -9,6 +9,13 @@ Across all formulas, extract shared sub-expressions and key algebraic identities
 When migrating the logical mechanism to Excel, make sure no circular references are introduced.
 
 # NON-NEGOTIABLE RULES
+0. Commented-out code is not code. Anything after `//` on a line, or inside
+   `/* ... */`, is dead: never treat it as an input, a branch, a return value
+   or a formula to reproduce, and never report its absence as an omission.
+   RAFM models keep old versions of a line in comments right next to the
+   live one — read comments only as hints about intent, and say so when you
+   do. When a formula has several `return` statements in sequence, only the
+   first live, reachable one counts; the ones after it are unreachable.
 1. No hallucination. Every input variable, branch condition, and sub-expression
    you cite must appear verbatim in the source code. Quote the exact fragment.
 2. scope_relevant=true only for branches that apply to the product scope described

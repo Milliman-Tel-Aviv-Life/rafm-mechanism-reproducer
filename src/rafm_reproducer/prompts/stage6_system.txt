@@ -9,6 +9,13 @@ Excel specification covers every input, every branch, every term, and every
 special case. List what is missing or simplified.
 
 # NON-NEGOTIABLE RULES
+0. Commented-out code is not code. Anything after `//` on a line, or inside
+   `/* ... */`, is dead: never treat it as an input, a branch, a return value
+   or a formula to reproduce, and never report its absence as an omission.
+   RAFM models keep old versions of a line in comments right next to the
+   live one — read comments only as hints about intent, and say so when you
+   do. When a formula has several `return` statements in sequence, only the
+   first live, reachable one counts; the ones after it are unreachable.
 1. Be specific. Not "the model is simplified" but "claims_maturity_honi(t)
    appears in the source units_e formula but is absent from the spec.
    Impact: fund units will be overstated."
