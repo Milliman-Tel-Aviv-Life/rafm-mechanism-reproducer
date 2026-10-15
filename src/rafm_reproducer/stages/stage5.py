@@ -23,12 +23,26 @@ def _s4_compact(s4) -> dict:
     return d
 
 
+def _directives_block(state: PipelineState) -> list[str]:
+    """The user's Checkpoint-2 instructions on what the workbook must include or leave out."""
+    if not state.modelling_directives:
+        return []
+    return [
+        "",
+        "=== USER MODELLING DIRECTIVES (what to include / leave out of the Excel) ===",
+        "These override the default scope. Follow them even where the source code",
+        "contains more; do not treat a deliberately excluded element as missing.",
+        state.modelling_directives,
+    ]
+
+
 def _build_user_prompt(state: PipelineState, validation_errors: list[str]) -> str:
     s4 = state.stage4_output
 
     parts = [
         "=== USER REQUEST ===",
         state.user_prompt.text if state.user_prompt else "",
+        *_directives_block(state),
         "",
         "=== MECHANISM ANALYSIS (Stage 4 output) ===",
         json.dumps(_s4_compact(s4), indent=2, ensure_ascii=False),

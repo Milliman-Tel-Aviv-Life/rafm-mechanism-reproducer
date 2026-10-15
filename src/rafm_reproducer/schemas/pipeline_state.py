@@ -51,6 +51,9 @@ class PipelineState(BaseModel):
     # Validation warnings surfaced to UI without blocking
     stage2_validation_warnings: list[str] = []
     checkpoint2: CheckpointAction | None = None
+    # Free-text instructions given at Checkpoint 2 about what the workbook must
+    # include or leave out. Forwarded verbatim to Stages 4, 5 and 6.
+    modelling_directives: str | None = None
 
     # Stage 3 (mechanical)
     stage3_enriched: list[EnrichedFormula] = []
