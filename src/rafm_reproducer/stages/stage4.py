@@ -13,12 +13,26 @@ from ..validators.stage4 import validate_stage4
 MAX_SEMANTIC_RETRIES = 2
 
 
+def _directives_block(state: PipelineState) -> list[str]:
+    """The user's Checkpoint-2 instructions on what the workbook must include or leave out."""
+    if not state.modelling_directives:
+        return []
+    return [
+        "",
+        "=== USER MODELLING DIRECTIVES (what to include / leave out of the Excel) ===",
+        "These override the default scope. Follow them even where the source code",
+        "contains more; do not treat a deliberately excluded element as missing.",
+        state.modelling_directives,
+    ]
+
+
 def _build_user_prompt(state: PipelineState, validation_errors: list[str]) -> str:
     s1 = state.stage1_output
     parts = [
         "=== MECHANISM CONTEXT ===",
         f"Confirmed request: {s1.confirmed_request if s1 else ''}",
         f"Interpretation: {s1.interpretation if s1 else ''}",
+        *_directives_block(state),
         "",
         "=== SELECTED FORMULAS WITH SOURCE CODE ===",
     ]

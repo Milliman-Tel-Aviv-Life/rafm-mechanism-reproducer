@@ -64,12 +64,18 @@ def trigger_stage2(state: PipelineState, client, cfg: dict) -> PipelineState:
     return run_stage2(state, client, cfg)
 
 
-def apply_checkpoint2_approve(state: PipelineState) -> PipelineState:
+def apply_checkpoint2_approve(
+    state: PipelineState, modelling_directives: str | None = None
+) -> PipelineState:
     state.checkpoint2 = CheckpointAction(
         action="approve",
         timestamp=datetime.now().isoformat(),
     )
+    state.modelling_directives = (modelling_directives or "").strip() or None
     save_json(state.run_dir, "checkpoint2_action", state.checkpoint2)
+    if state.modelling_directives:
+        save_json(state.run_dir, "modelling_directives", {"text": state.modelling_directives})
+    save_json(state.run_dir, "pipeline_state", state)
     return state
 
 

@@ -15,11 +15,25 @@ from ..validators.stage6 import validate_stage6
 MAX_SEMANTIC_RETRIES = 2
 
 
+def _directives_block(state: PipelineState) -> list[str]:
+    """The user's Checkpoint-2 instructions on what the workbook must include or leave out."""
+    if not state.modelling_directives:
+        return []
+    return [
+        "",
+        "=== USER MODELLING DIRECTIVES (what to include / leave out of the Excel) ===",
+        "The user chose this scope on purpose. An element the directives exclude",
+        "is NOT an omission — do not report it; only audit what they asked for.",
+        state.modelling_directives,
+    ]
+
+
 def _build_user_prompt(state: PipelineState, validation_errors: list[str]) -> str:
     s5 = state.stage5_output
     enriched = state.stage3_enriched
 
     parts = [
+        *_directives_block(state),
         "=== EXCEL SPECIFICATION TO AUDIT ===",
         json.dumps(s5.model_dump(), indent=2, ensure_ascii=False) if s5 else "{}",
         "",
