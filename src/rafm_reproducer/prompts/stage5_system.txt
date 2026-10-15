@@ -43,6 +43,13 @@ then it is INVALID — rewrite it. These tokens must never appear in a
 formula_excel field.
 
 # NON-NEGOTIABLE RULES
+0. Commented-out code is not code. Anything after `//` on a line, or inside
+   `/* ... */`, is dead: never treat it as an input, a branch, a return value
+   or a formula to reproduce, and never report its absence as an omission.
+   RAFM models keep old versions of a line in comments right next to the
+   live one — read comments only as hints about intent, and say so when you
+   do. When a formula has several `return` statements in sequence, only the
+   first live, reachable one counts; the ones after it are unreachable.
 1. No hallucination. Every "source_formula_number" must come from the
    decomposition you were given. Every default_value must be derivable from the
    sources; if it is not, set it to null and explain in "comment". Never invent
